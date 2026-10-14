@@ -1,10 +1,26 @@
+from collections.abc import Iterator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-DATABASE_URL = "postgresql://postgres:1234@localhost:5432/gemelo_db"
+from config import settings
 
-engine = create_engine(DATABASE_URL)
+# SQLite necesita este flag para usarse desde varios hilos (solo desarrollo/pruebas).
+_connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 
-SessionLocal = sessionmaker(bind=engine)
+engine = create_engine(settings.database_url, connect_args=_connect_args, pool_pre_ping=True)
 
-Base = declarative_base()
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db() -> Iterator[Session]:
+    """Dependencia de FastAPI: abre una sesión por petición y siempre la cierra."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

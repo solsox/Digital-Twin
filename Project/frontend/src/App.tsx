@@ -1,117 +1,133 @@
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { api, ApiError } from "./api";
+import FactorBreakdown from "./components/FactorBreakdown";
+import PatientForm from "./components/PatientForm";
 import PatientStatus from "./components/PatientStatus";
-import { useState } from "react";
-import RiskChart from "./components/RiskChart";
+import type { PatientInput, Prediction, PredictionRecord } from "./types";
+import "./App.css";
+
+// Recharts es pesado: se carga solo cuando hay historial que mostrar.
+const RiskChart = lazy(() => import("./components/RiskChart"));
+
+const STORAGE_KEY = "digital-twin:patientId";
+
+const DEFAULTS: PatientInput = {
+  age: 30,
+  gender: "male",
+  weight: 70,
+  height_cm: 175,
+  systolic_bp: 120,
+  diastolic_bp: 80,
+  cholesterol: 180,
+};
+
+function readStoredId(): number | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? Number(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeId(id: number | null) {
+  try {
+    if (id === null) localStorage.removeItem(STORAGE_KEY);
+    else localStorage.setItem(STORAGE_KEY, String(id));
+  } catch {
+    /* el almacenamiento puede no estar disponible; no es crítico */
+  }
+}
 
 function App() {
-  const [age, setAge] = useState(30);
-  const [weight, setWeight] = useState(70);
-  const [systolic, setSystolic] = useState(120);
-  const [diastolic, setDiastolic] = useState(80);
-  const [cholesterol, setCholesterol] = useState(180);
+  const [patientId, setPatientId] = useState<number | null>(readStoredId);
+  const [result, setResult] = useState<Prediction | null>(null);
+  const [history, setHistory] = useState<PredictionRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [result, setResult] = useState<any>(null);
-  const [history, setHistory] = useState<{ name: string; risk: number }[]>([]);
+  // Al abrir la app, recupera el historial del paciente guardado (si existe).
+  useEffect(() => {
+    if (patientId === null) return;
+    api
+      .listPredictions(patientId)
+      .then(setHistory)
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 404) {
+          setPatientId(null);
+          storeId(null);
+        }
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sendData = async () => {
-    const response = await fetch("http://127.0.0.1:8000/predict", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        age: age,
-        gender: "male",
-        weight: weight,
-        systolic_bp: systolic,
-        diastolic_bp: diastolic,
-        cholesterol: cholesterol,
-      }),
-    });
+  const handleSubmit = useCallback(
+    async (data: PatientInput) => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Un solo paciente evoluciona en el tiempo: se crea la primera vez y luego se actualiza.
+        let id = patientId;
+        if (id === null) {
+          id = (await api.createPatient(data)).id;
+          setPatientId(id);
+          storeId(id);
+        } else {
+          await api.updatePatient(id, data);
+        }
+        const prediction = await api.createPrediction(id);
+        setResult(prediction);
+        setHistory(await api.listPredictions(id));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Ocurrió un error inesperado.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [patientId],
+  );
 
-    const data = await response.json();
-
-    setResult(data);
-
-    setHistory((prev) => [
-      ...prev,
-      {
-        name: `P${prev.length + 1}`,
-        risk: data.score,
-      },
-    ]);
+  const startNewPatient = () => {
+    setPatientId(null);
+    storeId(null);
+    setHistory([]);
+    setResult(null);
+    setError(null);
   };
 
+  const chartData = history.map((h, i) => ({ name: `#${i + 1}`, risk: h.risk_score }));
+
   return (
-    <div style={{ 
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      
-      }}>
+    <main className="app">
       <h1>Digital Twin Health</h1>
+      <p className="subtitle">
+        Prototipo educativo de estimación de riesgo cardiovascular. No sustituye una evaluación médica.
+      </p>
 
-      <div style={{ marginBottom: "20px", display: "flex", flexDirection: "column", gap: "10px", maxWidth: "300px" }}>
+      <PatientForm initial={DEFAULTS} loading={loading} onSubmit={handleSubmit} />
 
-          <label>Edad</label>
-          <input
-            type="number"
-            value={age}
-            onChange={(e) => setAge(Number(e.target.value))}
-          />
-
-          <label>Peso (kg)</label>
-          <input
-            type="number"
-            value={weight}
-            onChange={(e) => setWeight(Number(e.target.value))}
-          />
-
-          <label>Presión sistólica</label>
-          <input
-            type="number"
-            value={systolic}
-            onChange={(e) => setSystolic(Number(e.target.value))}
-          />
-
-          <label>Presión diastólica</label>
-          <input
-            type="number"
-            value={diastolic}
-            onChange={(e) => setDiastolic(Number(e.target.value))}
-          />
-
-          <label>Colesterol</label>
-          <input
-            type="number"
-            value={cholesterol}
-            onChange={(e) => setCholesterol(Number(e.target.value))}
-          />
-
-        </div>
-
-      <button onClick={sendData}>
-        Enviar datos paciente
-      </button>
+      {error && <p className="error" role="alert">{error}</p>}
 
       {result && (
-        <div>
-          <h2>Resultado:</h2>
-          <p>Score: {result.score}</p>
-          <p>Nivel: {result.level}</p>
-        </div>
+        <section className="card">
+          <h2>Resultado</h2>
+          <PatientStatus level={result.level} score={result.score} />
+          <h3>¿Qué aporta a este resultado?</h3>
+          <FactorBreakdown factors={result.factors} />
+        </section>
       )}
-
-      {result && <PatientStatus level={result.level} />}
 
       {history.length > 0 && (
-        <div>
+        <section className="card">
           <h2>Historial de riesgo</h2>
-          <RiskChart data={history} />
-        </div>
+          <Suspense fallback={<p>Cargando gráfico…</p>}>
+            <RiskChart data={chartData} />
+          </Suspense>
+          <button type="button" className="secondary" onClick={startNewPatient}>
+            Empezar con un paciente nuevo
+          </button>
+        </section>
       )}
-    </div>
+    </main>
   );
 }
 
