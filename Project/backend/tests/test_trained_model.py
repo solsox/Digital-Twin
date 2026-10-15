@@ -38,7 +38,7 @@ def trained_artifact(synthetic_csv, monkeypatch):
 
 def test_training_produces_sane_artifact(synthetic_csv):
     artifact = train(load_data(synthetic_csv))
-    assert artifact["features"] == FEATURES
+    assert artifact["features"] == [f for f in FEATURES if f != "diaBP"]
     assert 0.6 < artifact["metrics"]["auc_test"] < 1.0
     assert artifact["coefficients"]["age"] > 0 and artifact["coefficients"]["sysBP"] > 0
     json.dumps(artifact)  # debe ser serializable
@@ -50,7 +50,7 @@ def test_trained_model_is_used_and_monotonic(trained_artifact):
     low = risk_model.predict_risk(base)
     high = risk_model.predict_risk({**base, "age": 65, "systolic_bp": 165, "cholesterol": 270})
     assert 0 <= low.score < high.score <= 1
-    assert set(low.factors) == {"edad", "sexo", "presion_sistolica", "presion_diastolica", "colesterol", "imc"}
+    assert set(low.factors) == {"edad", "sexo", "presion_sistolica", "colesterol", "imc"}
     assert risk_model.model_info()["kind"] == "logistic-framingham"
 
 
@@ -62,7 +62,12 @@ def test_trained_model_without_height_skips_bmi(trained_artifact):
 
 
 def test_model_endpoint_reports_example_model_without_artifact(client):
-    risk_model.reload_model()
     info = client.get("/model").json()
+    assert info["kind"] == "logistic-ejemplo"
     assert info["clinically_validated"] is False
-    assert info["kind"] in {"logistic-ejemplo", "logistic-framingham"}
+
+
+def test_model_endpoint_reports_trained_metrics(client, trained_artifact):
+    info = client.get("/model").json()
+    assert info["kind"] == "logistic-framingham"
+    assert info["metrics"]["auc_test"] == trained_artifact["metrics"]["auc_test"]

@@ -110,15 +110,12 @@ def _predict_trained(m: dict, data: dict) -> RiskResult:
         # Sin estatura no hay IMC: se usa la mediana del entrenamiento (aporte ~0).
         "BMI": imc if imc is not None else m["medians"]["BMI"],
     }
+    # Si BMI no se pudo calcular, entra con la mediana (aporte constante, no se muestra).
     contributions = {
         f: m["coefficients"][f] * (raw[f] - m["mean"][f]) / m["scale"][f] for f in m["features"]
     }
-    if imc is None:
-        contributions.pop("BMI")
-    score = _sigmoid(m["intercept"] + sum(contributions.values()) + (
-        m["coefficients"]["BMI"] * (m["medians"]["BMI"] - m["mean"]["BMI"]) / m["scale"]["BMI"]
-        if imc is None else 0.0
-    ))
+    hidden = contributions.pop("BMI", 0.0) if imc is None else 0.0
+    score = _sigmoid(m["intercept"] + sum(contributions.values()) + hidden)
     t = m["thresholds"]
     return RiskResult(
         score=round(score, 4),

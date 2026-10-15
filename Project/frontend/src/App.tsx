@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "./api";
+import AnalysisPanel from "./components/AnalysisPanel";
 import FactorBreakdown from "./components/FactorBreakdown";
 import PatientForm from "./components/PatientForm";
 import PatientStatus from "./components/PatientStatus";
@@ -121,6 +122,8 @@ function App() {
         // key: al recalcular el paciente el panel se reinicia con el escenario en cero
         <WhatIfPanel key={history.length} patientId={patientId} />
       )}
+
+      <AnalysisPanel />
 
       {history.length > 0 && (
         <section className="card">

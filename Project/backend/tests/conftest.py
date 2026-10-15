@@ -14,6 +14,14 @@ from database import Base, get_db  # noqa: E402
 from main import app  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def example_model(monkeypatch):
+    """Por defecto las pruebas usan el modelo de ejemplo, no el artefacto entrenado del disco."""
+    from ml import model as risk_model
+
+    monkeypatch.setattr(risk_model, "_load_trained", lambda: None)
+
+
 @pytest.fixture()
 def client():
     engine = create_engine(

@@ -30,6 +30,9 @@ from sklearn.model_selection import train_test_split
 FEATURES = ["age", "male", "sysBP", "diaBP", "totChol", "BMI"]
 TARGET = "TenYearCHD"
 DEFAULT_OUT = Path(__file__).parent / "artifacts" / "risk_model.json"
+# diaBP está muy correlacionada con sysBP; al entrenar con Framingham su coeficiente sale
+# negativo (bajar la diastólica "subiría" el riesgo), lo cual es un artefacto estadístico.
+DEFAULT_EXCLUDE = ("diaBP",)
 
 
 def load_data(path: Path) -> pd.DataFrame:
@@ -41,9 +44,10 @@ def load_data(path: Path) -> pd.DataFrame:
     return df
 
 
-def train(df: pd.DataFrame, seed: int = 42) -> dict:
+def train(df: pd.DataFrame, seed: int = 42, exclude: tuple[str, ...] = DEFAULT_EXCLUDE) -> dict:
+    features = [f for f in FEATURES if f not in exclude]
     medians = df[FEATURES].median()  # se usan para imputar valores ausentes (también en la API)
-    X = df[FEATURES].fillna(medians)
+    X = df[features].fillna(medians[features])
     y = df[TARGET].astype(int)
 
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, stratify=y, random_state=seed)
@@ -58,11 +62,12 @@ def train(df: pd.DataFrame, seed: int = 42) -> dict:
 
     return {
         "kind": "logistic-framingham",
-        "features": FEATURES,
+        "features": features,
+        "excluded": list(exclude),
         "intercept": float(clf.intercept_[0]),
-        "coefficients": {f: float(c) for f, c in zip(FEATURES, clf.coef_[0])},
-        "mean": {f: float(mean[f]) for f in FEATURES},
-        "scale": {f: float(scale[f]) for f in FEATURES},
+        "coefficients": {f: float(c) for f, c in zip(features, clf.coef_[0])},
+        "mean": {f: float(mean[f]) for f in features},
+        "scale": {f: float(scale[f]) for f in features},
         "medians": {f: float(medians[f]) for f in FEATURES},
         # Umbrales relativos a la tasa base del conjunto de datos.
         "thresholds": {"medium": round(base_rate * 0.75, 4), "high": round(base_rate * 1.75, 4)},
@@ -83,9 +88,11 @@ def main() -> None:
     parser.add_argument("--data", required=True, type=Path, help="CSV de Framingham")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--exclude", nargs="*", default=list(DEFAULT_EXCLUDE),
+                        help="variables a omitir (por defecto diaBP, por colinealidad)")
     args = parser.parse_args()
 
-    artifact = train(load_data(args.data), seed=args.seed)
+    artifact = train(load_data(args.data), seed=args.seed, exclude=tuple(args.exclude))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(artifact, indent=2, ensure_ascii=False))
     m = artifact["metrics"]

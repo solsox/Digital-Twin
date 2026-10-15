@@ -80,6 +80,22 @@ TenYearCHD`). El artefacto es un JSON con coeficientes y medias: la API no neces
 carga pickles. Aun entrenado, **no está validado clínicamente**: Framingham es una cohorte antigua de
 EE. UU. y sirve para aprender, no para decidir tratamientos.
 
+## Análisis de señales e imágenes
+
+`POST /analysis/ecg`, `/analysis/retina` y `/analysis/xray` (más `GET /analysis` con el estado de
+cada modelo). Los archivos se procesan en memoria: **no se guardan ni se registran**. Se validan
+tipo, tamaño (8 MB imágenes, 4 MB señales) y que realmente sean una imagen o una señal numérica.
+
+| Análisis | Entrada | Estado |
+|---|---|---|
+| ECG | CSV/TXT de un canal (+ frecuencia de muestreo) | Entrenado (MIT-BIH), ~87 % en validación cruzada |
+| Retina | JPG/PNG de fondo de ojo | Entrenado, **débil** (AUC 0,66) |
+| Rayos X | JPG/PNG de tórax | Listo, **sin modelo** (faltan datos): ver [DATA.md](DATA.md) |
+
+Un ECG en foto o PDF (papel) no se digitaliza: hay que subir la señal. Reentrenar:
+`python -m ml.train_ecg --data ...` y `python -m ml.train_images --task retina|cxr ...`.
+Fuentes, licencias y límites de cada conjunto de datos en [DATA.md](DATA.md).
+
 ## Base de datos y migraciones
 
 Por defecto se crean las tablas al arrancar (`AUTO_CREATE_TABLES=true`). En producción:

@@ -7,6 +7,7 @@ from config import settings
 from database import Base, engine
 from ml.model import model_info
 from models import patient, prediction  # noqa: F401  (registra las tablas en Base)
+from routes import analysis as analysis_routes
 from routes import patient as patient_routes
 from routes import predict as predict_routes
 
@@ -30,6 +31,7 @@ app.add_middleware(
 
 app.include_router(patient_routes.router)
 app.include_router(predict_routes.router)
+app.include_router(analysis_routes.router)
 
 
 @app.get("/health", tags=["meta"])

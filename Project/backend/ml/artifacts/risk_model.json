@@ -1,0 +1,56 @@
+{
+  "kind": "logistic-framingham",
+  "features": [
+    "age",
+    "male",
+    "sysBP",
+    "totChol",
+    "BMI"
+  ],
+  "excluded": [
+    "diaBP"
+  ],
+  "intercept": -1.965706297015384,
+  "coefficients": {
+    "age": 0.5367722741868057,
+    "male": 0.30382259106307624,
+    "sysBP": 0.3944085077292789,
+    "totChol": 0.13047422091954092,
+    "BMI": 0.011608881071100509
+  },
+  "mean": {
+    "age": 49.67327044025157,
+    "male": 0.42955974842767297,
+    "sysBP": 132.34748427672955,
+    "totChol": 236.58805031446542,
+    "BMI": 25.844025157232704
+  },
+  "scale": {
+    "age": 8.578888963327422,
+    "male": 0.49501330381963204,
+    "sysBP": 21.914811695712967,
+    "totChol": 43.92205913420571,
+    "BMI": 4.1176635952495975
+  },
+  "medians": {
+    "age": 49.0,
+    "male": 0.0,
+    "sysBP": 128.0,
+    "diaBP": 82.0,
+    "totChol": 234.0,
+    "BMI": 25.4
+  },
+  "thresholds": {
+    "medium": 0.1139,
+    "high": 0.2658
+  },
+  "metrics": {
+    "auc_test": 0.6946,
+    "brier_test": 0.1208,
+    "base_rate": 0.1519,
+    "n_train": 3180,
+    "n_test": 1060
+  },
+  "trained_at": "2026-10-15T00:46:05+00:00",
+  "source": "Framingham Heart Study (CSV público)"
+}

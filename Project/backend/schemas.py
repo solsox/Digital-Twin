@@ -67,3 +67,35 @@ class SimulationOut(BaseModel):
     baseline: PredictionOut
     scenario: PredictionOut
     score_change: float  # scenario.score - baseline.score (negativo = el riesgo baja)
+
+
+class ModelCard(BaseModel):
+    title: str
+    available: bool
+    metrics: dict | None = None
+    source: str | None = None
+
+
+class AnalysisCatalog(BaseModel):
+    ecg: ModelCard
+    retina: ModelCard
+    xray: ModelCard
+
+
+class EcgAnalysis(BaseModel):
+    label: str
+    description: str
+    confidence: float
+    probabilities: dict[str, float]
+    heart_rate_bpm: float | None
+    segments_analyzed: int
+    disclaimer: str
+
+
+class ImageAnalysis(BaseModel):
+    kind: str
+    finding: str
+    probability: float
+    image_size: list[int]
+    model_auc: float  # calidad del modelo (validación cruzada); AUC 0.5 = azar
+    disclaimer: str

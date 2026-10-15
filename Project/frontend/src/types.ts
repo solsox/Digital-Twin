@@ -46,3 +46,33 @@ export interface Simulation {
   scenario: Prediction;
   score_change: number;
 }
+
+export type AnalysisKind = "ecg" | "retina" | "xray";
+
+export interface ModelCard {
+  title: string;
+  available: boolean;
+  metrics: Record<string, unknown> | null;
+  source: string | null;
+}
+
+export type AnalysisCatalog = Record<AnalysisKind, ModelCard>;
+
+export interface EcgAnalysis {
+  label: string;
+  description: string;
+  confidence: number;
+  probabilities: Record<string, number>;
+  heart_rate_bpm: number | null;
+  segments_analyzed: number;
+  disclaimer: string;
+}
+
+export interface ImageAnalysis {
+  kind: string;
+  finding: string;
+  probability: number;
+  image_size: number[];
+  model_auc: number;
+  disclaimer: string;
+}

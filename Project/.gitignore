@@ -7,3 +7,6 @@ __pycache__/
 *.db
 .DS_Store
 dist/
+
+# Datos de entrenamiento (licencias propias, no se suben)
+data/

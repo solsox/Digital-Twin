@@ -1,4 +1,7 @@
 import type {
+  AnalysisCatalog,
+  EcgAnalysis,
+  ImageAnalysis,
   Patient,
   PatientInput,
   Prediction,
@@ -36,7 +39,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
-      headers: { "Content-Type": "application/json" },
+      // Con FormData el navegador pone solo el Content-Type (con el boundary).
+      headers: init?.body instanceof FormData ? undefined : { "Content-Type": "application/json" },
       ...init,
     });
   } catch {
@@ -76,4 +80,19 @@ export const api = {
       signal,
       ...json(scenario),
     }),
+
+  analysisCatalog: () => request<AnalysisCatalog>("/analysis"),
+
+  analyzeEcg: (file: File, fs: number) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("fs", String(fs));
+    return request<EcgAnalysis>("/analysis/ecg", { method: "POST", body });
+  },
+
+  analyzeImage: (kind: "retina" | "xray", file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request<ImageAnalysis>(`/analysis/${kind}`, { method: "POST", body });
+  },
 };
