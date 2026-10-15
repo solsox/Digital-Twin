@@ -10,8 +10,11 @@ estudio clínico. Para uso real hay que reemplazarlos por un modelo entrenado y 
 """
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 
 # Valores de referencia (persona "sana" de comparación) y coeficientes en escala logit.
 INTERCEPT = -3.0
@@ -33,6 +36,15 @@ THRESHOLD_MEDIUM = 0.15
 THRESHOLD_HIGH = 0.35
 
 
+# Si existe este archivo (lo genera ml/train.py) se usa el modelo entrenado en lugar de la fórmula de ejemplo.
+ARTIFACT_PATH = Path(__file__).parent / "artifacts" / "risk_model.json"
+
+_TRAINED_LABELS = {
+    "age": "edad", "male": "sexo", "sysBP": "presion_sistolica",
+    "diaBP": "presion_diastolica", "totChol": "colesterol", "BMI": "imc",
+}
+
+
 @dataclass
 class RiskResult:
     score: float
@@ -51,12 +63,68 @@ def bmi(weight_kg: float, height_cm: float | None) -> float | None:
     return weight_kg / (meters * meters)
 
 
-def classify(score: float) -> str:
-    if score >= THRESHOLD_HIGH:
+def classify(score: float, medium: float = THRESHOLD_MEDIUM, high: float = THRESHOLD_HIGH) -> str:
+    if score >= high:
         return "alto"
-    if score >= THRESHOLD_MEDIUM:
+    if score >= medium:
         return "medio"
     return "bajo"
+
+
+@lru_cache(maxsize=1)
+def _load_trained(path: Path = ARTIFACT_PATH) -> dict | None:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def reload_model() -> None:
+    """Vuelve a leer el artefacto (útil tras reentrenar sin reiniciar el servidor)."""
+    _load_trained.cache_clear()
+
+
+def model_info() -> dict:
+    trained = _load_trained()
+    if trained is None:
+        return {"kind": "logistic-ejemplo", "clinically_validated": False, "metrics": None}
+    return {
+        "kind": trained["kind"],
+        "clinically_validated": False,
+        "metrics": trained["metrics"],
+        "trained_at": trained["trained_at"],
+        "source": trained["source"],
+    }
+
+
+def _predict_trained(m: dict, data: dict) -> RiskResult:
+    """Regresión logística entrenada: cada factor aporta coef * (valor - media) / desviación."""
+    height = data.get("height_cm")
+    imc = bmi(data["weight"], height) if data.get("weight") and height else None
+    raw = {
+        "age": data["age"],
+        "male": 1.0 if data["gender"] == "male" else 0.0,
+        "sysBP": data["systolic_bp"],
+        "diaBP": data["diastolic_bp"],
+        "totChol": data["cholesterol"],
+        # Sin estatura no hay IMC: se usa la mediana del entrenamiento (aporte ~0).
+        "BMI": imc if imc is not None else m["medians"]["BMI"],
+    }
+    contributions = {
+        f: m["coefficients"][f] * (raw[f] - m["mean"][f]) / m["scale"][f] for f in m["features"]
+    }
+    if imc is None:
+        contributions.pop("BMI")
+    score = _sigmoid(m["intercept"] + sum(contributions.values()) + (
+        m["coefficients"]["BMI"] * (m["medians"]["BMI"] - m["mean"]["BMI"]) / m["scale"]["BMI"]
+        if imc is None else 0.0
+    ))
+    t = m["thresholds"]
+    return RiskResult(
+        score=round(score, 4),
+        level=classify(score, t["medium"], t["high"]),
+        factors={_TRAINED_LABELS[f]: round(v, 4) for f, v in contributions.items()},
+    )
 
 
 def predict_risk(data: dict) -> RiskResult:
@@ -65,6 +133,10 @@ def predict_risk(data: dict) -> RiskResult:
     Claves requeridas: age, gender, systolic_bp, diastolic_bp, cholesterol.
     Opcionales: weight y height_cm (si ambas están, se incluye el IMC).
     """
+    trained = _load_trained()
+    if trained is not None:
+        return _predict_trained(trained, data)
+
     factors: dict[str, float] = {
         "edad": COEF_AGE * (data["age"] - REF_AGE),
         # Para presión y colesterol solo penaliza lo que excede la referencia.

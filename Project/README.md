@@ -62,5 +62,40 @@ cd frontend && npm run lint && npm run build
 
 `ml/model.py` calcula `sigmoide(intercepto + Σ aportes)`. Cada factor (edad, presión sistólica y
 diastólica, colesterol, sexo e IMC) aporta en escala logit, por lo que el score siempre está entre 0 y 1
-y la respuesta incluye el aporte de cada uno. Para usar un modelo real, reemplaza `predict_risk`
-manteniendo su interfaz (devuelve `RiskResult`).
+y la respuesta incluye el aporte de cada uno.
+
+Hay dos modos, y `GET /model` indica cuál está activo:
+
+- **Ejemplo (por defecto):** coeficientes inventados para el prototipo. No son clínicos.
+- **Entrenado:** si existe `backend/ml/artifacts/risk_model.json`, se usa ese modelo. Se genera así:
+
+```bash
+cd backend
+pip install -r requirements-train.txt
+python -m ml.train --data ruta/a/framingham.csv   # imprime AUC, Brier y tasa base
+```
+
+El CSV es el conjunto público de Framingham (columnas `male, age, sysBP, diaBP, totChol, BMI,
+TenYearCHD`). El artefacto es un JSON con coeficientes y medias: la API no necesita scikit-learn ni
+carga pickles. Aun entrenado, **no está validado clínicamente**: Framingham es una cohorte antigua de
+EE. UU. y sirve para aprender, no para decidir tratamientos.
+
+## Base de datos y migraciones
+
+Por defecto se crean las tablas al arrancar (`AUTO_CREATE_TABLES=true`). En producción:
+
+```bash
+AUTO_CREATE_TABLES=false alembic upgrade head
+alembic revision --autogenerate -m "describe el cambio"   # tras modificar un modelo
+```
+
+Si ya tienes una base creada con `create_all`, márcala como migrada con `alembic stamp head`.
+
+## Pruebas y CI
+
+```bash
+cd backend && pytest -q            # API, modelo y pipeline de entrenamiento (datos sintéticos)
+cd frontend && npm test            # formulario y panel what-if
+```
+
+`.github/workflows/ci.yml` ejecuta todo esto (más lint, build y `alembic check`) en cada push y PR.

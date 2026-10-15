@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     # Orígenes permitidos para CORS, separados por coma.
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # True: crea las tablas al arrancar (cómodo en desarrollo). En producción usa False
+    # y aplica las migraciones con `alembic upgrade head`.
+    auto_create_tables: bool = True
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     @property

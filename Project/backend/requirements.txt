@@ -4,6 +4,7 @@ sqlalchemy>=2.0
 psycopg2-binary>=2.9
 pydantic>=2.7
 pydantic-settings>=2.3
+alembic>=1.13
 
 # Desarrollo / pruebas
 pytest>=8.0
