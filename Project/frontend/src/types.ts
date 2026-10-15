@@ -33,3 +33,16 @@ export interface PredictionRecord {
   factors: Record<string, number>;
   created_at: string;
 }
+
+export interface SimulationInput {
+  systolic_bp_delta: number;
+  diastolic_bp_delta: number;
+  cholesterol_delta: number;
+  weight_delta: number;
+}
+
+export interface Simulation {
+  baseline: Prediction;
+  scenario: Prediction;
+  score_change: number;
+}

@@ -56,6 +56,7 @@ cd frontend && npm run lint && npm run build
 | DELETE | `/patients/{id}` | Elimina paciente y su historial |
 | POST | `/patients/{id}/predictions` | Calcula y guarda una predicción |
 | GET | `/patients/{id}/predictions` | Historial de predicciones |
+| POST | `/patients/{id}/simulate` | Escenario what-if (deltas de presión, colesterol, peso); compara riesgo actual vs. escenario sin guardar |
 
 ## Modelo de riesgo
 

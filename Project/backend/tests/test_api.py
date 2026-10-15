@@ -48,3 +48,33 @@ def test_not_found(client):
     assert client.get("/patients/999").status_code == 404
     assert client.post("/patients/999/predictions").status_code == 404
     assert client.get("/patients/999/predictions").status_code == 404
+
+
+def test_simulation_compares_without_saving(client, valid_patient):
+    pid = client.post("/patients", json=valid_patient).json()["id"]
+    better = client.post(
+        f"/patients/{pid}/simulate",
+        json={"systolic_bp_delta": -15, "diastolic_bp_delta": -8, "cholesterol_delta": -40},
+    )
+    assert better.status_code == 200
+    body = better.json()
+    assert body["scenario"]["score"] < body["baseline"]["score"]
+    assert body["score_change"] < 0
+
+    worse = client.post(f"/patients/{pid}/simulate", json={"cholesterol_delta": 100}).json()
+    assert worse["score_change"] > 0
+
+    # Sin cambios: el escenario coincide con la base. Y no se guardó ninguna predicción.
+    same = client.post(f"/patients/{pid}/simulate", json={}).json()
+    assert same["score_change"] == 0
+    assert client.get(f"/patients/{pid}/predictions").json() == []
+    assert client.get(f"/patients/{pid}").json()["cholesterol"] == valid_patient["cholesterol"]
+
+
+def test_simulation_rejects_invalid_scenarios(client, valid_patient):
+    pid = client.post("/patients", json=valid_patient).json()["id"]
+    # sistólica 130 - 60 = 70 queda por debajo de la diastólica (85)
+    r = client.post(f"/patients/{pid}/simulate", json={"systolic_bp_delta": -60})
+    assert r.status_code == 422
+    assert client.post(f"/patients/{pid}/simulate", json={"cholesterol_delta": 9999}).status_code == 422
+    assert client.post("/patients/999/simulate", json={}).status_code == 404

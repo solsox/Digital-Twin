@@ -52,3 +52,18 @@ class PredictionRecord(BaseModel):
     risk_level: str
     factors: dict[str, float]
     created_at: datetime
+
+
+class SimulationIn(BaseModel):
+    """Escenario 'what-if': cambios relativos sobre los valores actuales del paciente."""
+
+    systolic_bp_delta: float = Field(default=0, ge=-100, le=100)
+    diastolic_bp_delta: float = Field(default=0, ge=-60, le=60)
+    cholesterol_delta: float = Field(default=0, ge=-300, le=300)
+    weight_delta: float = Field(default=0, ge=-100, le=100)
+
+
+class SimulationOut(BaseModel):
+    baseline: PredictionOut
+    scenario: PredictionOut
+    score_change: float  # scenario.score - baseline.score (negativo = el riesgo baja)

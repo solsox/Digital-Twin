@@ -154,3 +154,69 @@ button.secondary {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Panel what-if --- */
+.hint {
+  margin: 0;
+  font-size: 14px;
+}
+
+.whatif-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slider label {
+  font-size: 14px;
+  color: var(--text-h);
+  display: flex;
+  justify-content: space-between;
+}
+
+.slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.whatif-result {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.whatif-result > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.whatif-result strong {
+  font-size: 24px;
+  color: var(--text-h);
+}
+
+.whatif-result .label,
+.whatif-result .level {
+  font-size: 13px;
+}
+
+.whatif-result .delta {
+  grid-column: 1 / -1;
+  font-weight: 600;
+}
+
+.whatif-result.better { border-color: #16a34a; }
+.whatif-result.better .delta { color: #16a34a; }
+.whatif-result.worse { border-color: #dc2626; }
+.whatif-result.worse .delta { color: #dc2626; }

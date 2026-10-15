@@ -3,6 +3,7 @@ import { api, ApiError } from "./api";
 import FactorBreakdown from "./components/FactorBreakdown";
 import PatientForm from "./components/PatientForm";
 import PatientStatus from "./components/PatientStatus";
+import WhatIfPanel from "./components/WhatIfPanel";
 import type { PatientInput, Prediction, PredictionRecord } from "./types";
 import "./App.css";
 
@@ -114,6 +115,11 @@ function App() {
           <h3>¿Qué aporta a este resultado?</h3>
           <FactorBreakdown factors={result.factors} />
         </section>
+      )}
+
+      {result && patientId !== null && (
+        // key: al recalcular el paciente el panel se reinicia con el escenario en cero
+        <WhatIfPanel key={history.length} patientId={patientId} />
       )}
 
       {history.length > 0 && (

@@ -1,12 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models.patient import Patient
 from models.prediction import Prediction
-from schemas import PatientCreate, PatientOut, PredictionOut, PredictionRecord
-from services.prediction_service import predict_and_store
+from schemas import (
+    PatientBase,
+    PatientCreate,
+    PatientOut,
+    PredictionOut,
+    PredictionRecord,
+    SimulationIn,
+    SimulationOut,
+)
+from services.prediction_service import patient_to_dict, predict_and_store, run_prediction
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -81,3 +90,31 @@ def list_predictions(patient_id: int, db: Session = Depends(get_db)):
     return db.scalars(
         select(Prediction).where(Prediction.patient_id == patient_id).order_by(Prediction.id)
     ).all()
+
+
+@router.post("/{patient_id}/simulate", response_model=SimulationOut)
+def simulate(patient_id: int, scenario: SimulationIn, db: Session = Depends(get_db)):
+    """Escenario 'what-if': ¿cómo cambiaría el riesgo si se modifican ciertas variables?
+
+    No guarda nada: compara el riesgo actual del paciente con el del escenario.
+    """
+    base = patient_to_dict(_get_patient_or_404(db, patient_id))
+    changed = {
+        **base,
+        "systolic_bp": base["systolic_bp"] + scenario.systolic_bp_delta,
+        "diastolic_bp": base["diastolic_bp"] + scenario.diastolic_bp_delta,
+        "cholesterol": base["cholesterol"] + scenario.cholesterol_delta,
+        "weight": base["weight"] + scenario.weight_delta,
+    }
+    try:
+        PatientBase(**changed)  # el escenario debe seguir siendo un paciente válido
+    except ValidationError as exc:
+        msg = "; ".join(e["msg"] for e in exc.errors())
+        raise HTTPException(422, f"Escenario no válido: {msg}")
+
+    before, after = run_prediction(base), run_prediction(changed)
+    return SimulationOut(
+        baseline=PredictionOut(score=before.score, level=before.level, factors=before.factors),
+        scenario=PredictionOut(score=after.score, level=after.level, factors=after.factors),
+        score_change=round(after.score - before.score, 4),
+    )

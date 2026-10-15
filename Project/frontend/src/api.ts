@@ -1,4 +1,11 @@
-import type { Patient, PatientInput, Prediction, PredictionRecord } from "./types";
+import type {
+  Patient,
+  PatientInput,
+  Prediction,
+  PredictionRecord,
+  Simulation,
+  SimulationInput,
+} from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 
@@ -61,4 +68,12 @@ export const api = {
 
   listPredictions: (patientId: number) =>
     request<PredictionRecord[]>(`/patients/${patientId}/predictions`),
+
+  /** Escenario what-if sobre un paciente guardado; no persiste nada. */
+  simulate: (patientId: number, scenario: SimulationInput, signal?: AbortSignal) =>
+    request<Simulation>(`/patients/${patientId}/simulate`, {
+      method: "POST",
+      signal,
+      ...json(scenario),
+    }),
 };
