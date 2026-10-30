@@ -1,0 +1,21 @@
+# Entorno de DESARROLLO. Para producción: secretos gestionados, TLS, red segmentada y versiones fijadas.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: vdl
+      POSTGRES_PASSWORD: cambiar
+      POSTGRES_DB: vdl
+    volumes: [dbdata:/var/lib/postgresql/data]
+  orthanc:
+    image: orthancteam/orthanc   # FIJAR versión antes de uso real
+    ports: ["8042:8042", "4242:4242"]
+    volumes: [dicomdata:/var/lib/orthanc/db]
+  api:
+    build: .
+    env_file: .env
+    depends_on: [db]
+    ports: ["8000:8000"]
+volumes:
+  dbdata:
+  dicomdata:
